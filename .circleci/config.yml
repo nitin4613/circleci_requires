@@ -13,28 +13,21 @@ jobs:
           - "failed"
           - "canceled"
     steps:
-      - when:
-          condition: << parameters.outcome >> == "success"
-          steps:
-            - run:
-                name: "Job A Succeeds"
-                command: echo "Job A completed successfully."
-      - when:
-          condition: << parameters.outcome >> == "failed"
-          steps:
-            - run:
-                name: "Job A Fails"
-                command: |
-                  echo "Job A failed."
-                  exit 1
-      - when:
-          condition: << parameters.outcome >> == "canceled"
-          steps:
-            - run:
-                name: "Job A Canceled"
-                command: |
-                  echo "Job A is being canceled."
-                  circleci-agent step halt
+      - run:
+          name: "Set outcome"
+          command: |
+            echo "Job A outcome: << parameters.outcome >>"
+            if [ "<< parameters.outcome >>" == "success" ]; then
+              echo "Job A completed successfully."
+              exit 0
+            elif [ "<< parameters.outcome >>" == "failed" ]; then
+              echo "Job A failed."
+              exit 1
+            elif [ "<< parameters.outcome >>" == "canceled" ]; then
+              echo "Job A is being canceled."
+              # Simulate a canceled job by exiting with a specific code
+              exit 2
+            fi
 
   job_b:
     docker:
@@ -74,9 +67,7 @@ workflows:
           outcome: "success"
       - job_b:
           requires:
-            - "Job A Success":
-                - success
-                - failed
+            - "Job A Success": [success, failed]
       - job_c:
           requires:
             - "Job A Success": failed
@@ -88,19 +79,16 @@ workflows:
             - "Job A Success": success
       - job_f:
           requires:
-            - "Job A Success":
-                - success
-                - failed
-                - canceled
+            - "Job A Success": [success, failed, canceled]
+
       - job_a:
           name: "Job A Failed"
           outcome: "failed"
+          continue-on-error: true
       - job_b:
           name: "Job B after A Failed"
           requires:
-            - "Job A Failed":
-                - success
-                - failed
+            - "Job A Failed": [success, failed]
       - job_c:
           name: "Job C after A Failed"
           requires:
@@ -116,19 +104,16 @@ workflows:
       - job_f:
           name: "Job F after A Failed"
           requires:
-            - "Job A Failed":
-                - success
-                - failed
-                - canceled
+            - "Job A Failed": [success, failed, canceled]
+
       - job_a:
           name: "Job A Canceled"
           outcome: "canceled"
+          continue-on-error: true
       - job_b:
           name: "Job B after A Canceled"
           requires:
-            - "Job A Canceled":
-                - success
-                - failed
+            - "Job A Canceled": [success, failed]
       - job_c:
           name: "Job C after A Canceled"
           requires:
@@ -144,7 +129,4 @@ workflows:
       - job_f:
           name: "Job F after A Canceled"
           requires:
-            - "Job A Canceled":
-                - success
-                - failed
-                - canceled
+            - "Job A Canceled": [success, failed, canceled]
