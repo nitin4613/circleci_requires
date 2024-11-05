@@ -1,0 +1,150 @@
+version: 2.1
+
+jobs:
+  job_a:
+    docker:
+      - image: cimg/base:stable
+    parameters:
+      outcome:
+        type: string
+        default: "success"
+        enum:
+          - "success"
+          - "failed"
+          - "canceled"
+    steps:
+      - when:
+          condition: << parameters.outcome >> == "success"
+          steps:
+            - run:
+                name: "Job A Succeeds"
+                command: echo "Job A completed successfully."
+      - when:
+          condition: << parameters.outcome >> == "failed"
+          steps:
+            - run:
+                name: "Job A Fails"
+                command: |
+                  echo "Job A failed."
+                  exit 1
+      - when:
+          condition: << parameters.outcome >> == "canceled"
+          steps:
+            - run:
+                name: "Job A Canceled"
+                command: |
+                  echo "Job A is being canceled."
+                  circleci-agent step halt
+
+  job_b:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "Job B started because Job A succeeded or failed."
+
+  job_c:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "Job C started because Job A failed."
+
+  job_d:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "Job D started because Job A was canceled."
+
+  job_e:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "Job E started because Job A succeeded."
+
+  job_f:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "Job F started regardless of Job A's outcome."
+
+workflows:
+  test_requires_outcomes:
+    jobs:
+      - job_a:
+          name: "Job A Success"
+          outcome: "success"
+      - job_b:
+          requires:
+            - "Job A Success":
+                - success
+                - failed
+      - job_c:
+          requires:
+            - "Job A Success": failed
+      - job_d:
+          requires:
+            - "Job A Success": canceled
+      - job_e:
+          requires:
+            - "Job A Success": success
+      - job_f:
+          requires:
+            - "Job A Success":
+                - success
+                - failed
+                - canceled
+      - job_a:
+          name: "Job A Failed"
+          outcome: "failed"
+      - job_b:
+          name: "Job B after A Failed"
+          requires:
+            - "Job A Failed":
+                - success
+                - failed
+      - job_c:
+          name: "Job C after A Failed"
+          requires:
+            - "Job A Failed": failed
+      - job_d:
+          name: "Job D after A Failed"
+          requires:
+            - "Job A Failed": canceled
+      - job_e:
+          name: "Job E after A Failed"
+          requires:
+            - "Job A Failed": success
+      - job_f:
+          name: "Job F after A Failed"
+          requires:
+            - "Job A Failed":
+                - success
+                - failed
+                - canceled
+      - job_a:
+          name: "Job A Canceled"
+          outcome: "canceled"
+      - job_b:
+          name: "Job B after A Canceled"
+          requires:
+            - "Job A Canceled":
+                - success
+                - failed
+      - job_c:
+          name: "Job C after A Canceled"
+          requires:
+            - "Job A Canceled": failed
+      - job_d:
+          name: "Job D after A Canceled"
+          requires:
+            - "Job A Canceled": canceled
+      - job_e:
+          name: "Job E after A Canceled"
+          requires:
+            - "Job A Canceled": success
+      - job_f:
+          name: "Job F after A Canceled"
+          requires:
+            - "Job A Canceled":
+                - success
+                - failed
+                - canceled
